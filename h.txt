@@ -1,0 +1,330 @@
+Step 2 — Install Dependencies
+npm install prisma @prisma/client mysql2 bcrypt jsonwebtoken dotenv
+Step 3 — Initialize Prisma
+npx prisma init
+🗄 2️⃣ PRISMA SCHEMA
+
+Replace prisma/schema.prisma with:
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  MANAGER
+  SUPPORT
+  USER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+
+  createdTickets  Ticket[] @relation("CreatedTickets")
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  comments        TicketComment[]
+  statusChanges   TicketStatusLog[]
+}
+
+model Ticket {
+  id          Int            @id @default(autoincrement())
+  title       String
+  description String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+
+  createdById Int
+  assignedToId Int?
+
+  createdBy   User  @relation("CreatedTickets", fields: [createdById], references: [id])
+  assignedTo  User? @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  comments    TicketComment[]
+  statusLogs  TicketStatusLog[]
+}
+
+model TicketComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  userId    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model TicketStatusLog {
+  id        Int          @id @default(autoincrement())
+  ticketId  Int
+  oldStatus TicketStatus
+  newStatus TicketStatus
+  changedById Int
+  changedAt DateTime     @default(now())
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
+}
+Step 4 — Configure .env
+DATABASE_URL="mysql://root:password@localhost:3306/helpdesk_db"
+JWT_SECRET="supersecretkey"
+Step 5 — Push Database
+npx prisma db push
+Step 6 — Seed Roles (Important)
+
+Create prisma/seed.js
+
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+
+async function main() {
+  await prisma.role.createMany({
+    data: [
+      { name: "MANAGER" },
+      { name: "SUPPORT" },
+      { name: "USER" },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+main().finally(() => prisma.$disconnect());
+
+Run:
+
+node prisma/seed.js
+📁 3️⃣ PROJECT STRUCTURE
+app/api/
+lib/
+🔧 4️⃣ LIB FILES
+lib/prisma.js
+import { PrismaClient } from "@prisma/client";
+
+export const prisma =
+  global.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== "production")
+  global.prisma = prisma;
+  
+lib/auth.js
+import jwt from "jsonwebtoken";
+import { prisma } from "./prisma";
+
+export async function getUser(req) {
+  const header = req.headers.get("authorization");
+
+  if (!header?.startsWith("Bearer "))
+    return null;
+
+  const token = header.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { role: true },
+    });
+  } catch {
+    return null;
+  }
+}
+lib/rbac.js
+export function authorize(user, ...roles) {
+  if (!user)
+    throw { status: 401, message: "Unauthorized" };
+
+  if (!roles.includes(user.role.name))
+    throw { status: 403, message: "Forbidden" };
+}
+lib/statusTransition.js
+export const transitions = {
+  OPEN: ["IN_PROGRESS"],
+  IN_PROGRESS: ["RESOLVED"],
+  RESOLVED: ["CLOSED"],
+  CLOSED: [],
+};
+🔐 5️⃣ AUTH ENDPOINT
+app/api/auth/login/route.js
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { NextResponse } from "next/server";
+
+export async function POST(req) {
+  const { email, password } = await req.json();
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { role: true },
+  });
+
+  if (!user)
+    return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+
+  const match = await bcrypt.compare(password, user.password);
+
+  if (!match)
+    return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+
+  const token = jwt.sign(
+    { id: user.id, role: user.role.name },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+
+  return NextResponse.json({ token });
+}
+👤 6️⃣ USERS (MANAGER ONLY)
+app/api/users/route.js
+import { prisma } from "@/lib/prisma";
+import { getUser } from "@/lib/auth";
+import { authorize } from "@/lib/rbac";
+import bcrypt from "bcrypt";
+import { NextResponse } from "next/server";
+
+export async function POST(req) {
+  const user = await getUser(req);
+
+  try { authorize(user, "MANAGER"); }
+  catch (e) { return NextResponse.json({ message: e.message }, { status: e.status }); }
+
+  const { name, email, password, roleName } = await req.json();
+
+  const role = await prisma.role.findUnique({ where: { name: roleName } });
+  if (!role) return NextResponse.json({ message: "Invalid role" }, { status: 400 });
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  const newUser = await prisma.user.create({
+    data: { name, email, password: hashed, roleId: role.id },
+  });
+
+  return NextResponse.json(newUser, { status: 201 });
+}
+
+export async function GET(req) {
+  const user = await getUser(req);
+
+  try { authorize(user, "MANAGER"); }
+  catch (e) { return NextResponse.json({ message: e.message }, { status: e.status }); }
+
+  const users = await prisma.user.findMany({ include: { role: true } });
+  return NextResponse.json(users);
+}
+🎫 7️⃣ TICKETS
+app/api/tickets/route.js
+import { prisma } from "@/lib/prisma";
+import { getUser } from "@/lib/auth";
+import { authorize } from "@/lib/rbac";
+import { NextResponse } from "next/server";
+
+export async function POST(req) {
+  const user = await getUser(req);
+
+  try { authorize(user, "USER", "MANAGER"); }
+  catch (e) { return NextResponse.json({ message: e.message }, { status: e.status }); }
+
+  const { title, description, priority } = await req.json();
+
+  if (title.length < 5 || description.length < 10)
+    return NextResponse.json({ message: "Validation failed" }, { status: 400 });
+
+  const ticket = await prisma.ticket.create({
+    data: { title, description, priority, createdById: user.id },
+  });
+
+  return NextResponse.json(ticket, { status: 201 });
+}
+
+export async function GET(req) {
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+  let where = {};
+
+  if (user.role.name === "SUPPORT")
+    where.assignedToId = user.id;
+
+  if (user.role.name === "USER")
+    where.createdById = user.id;
+
+  const tickets = await prisma.ticket.findMany({ where });
+  return NextResponse.json(tickets);
+}
+🎯 8️⃣ Assign, Status, Delete
+
+Create:
+
+app/api/tickets/[id]/assign/route.js
+app/api/tickets/[id]/status/route.js
+app/api/tickets/[id]/route.js
+
+(Already explained earlier — same logic applies.)
+
+💬 9️⃣ COMMENTS
+
+Create:
+
+app/api/tickets/[id]/comments/route.js
+app/api/comments/[id]/route.js
+
+Use ownership + MANAGER check like earlier example.
+
+▶️ RUN PROJECT
+npm run dev
+
+Server runs at:
+
+http://localhost:3000/api/...
+✅ TEST FLOW
+
+Create MANAGER manually in DB
+
+Login → get token
+
+Create SUPPORT + USER
+
+Create ticket
+
+Assign ticket
+
+Update status step-by-step
+
+Add comments
+
+Try invalid transitions (expect 400)
+
+Try without token (expect 401)
+
+Try wrong role (expect 403)

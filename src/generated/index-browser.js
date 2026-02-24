@@ -121,11 +121,46 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name'
+};
+
 exports.Prisma.UserScalarFieldEnum = {
   id: 'id',
   name: 'name',
   email: 'email',
-  password: 'password'
+  password: 'password',
+  roleId: 'roleId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  status: 'status',
+  priority: 'priority',
+  createdById: 'createdById',
+  assignedToId: 'assignedToId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketCommentScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  userId: 'userId',
+  comment: 'comment',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketStatusLogScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  oldStatus: 'oldStatus',
+  newStatus: 'newStatus',
+  changedById: 'changedById',
+  changedAt: 'changedAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -133,15 +168,50 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
-exports.Prisma.userOrderByRelevanceFieldEnum = {
+exports.Prisma.UserOrderByRelevanceFieldEnum = {
   name: 'name',
   email: 'email',
   password: 'password'
 };
 
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
+exports.Prisma.TicketOrderByRelevanceFieldEnum = {
+  title: 'title',
+  description: 'description'
+};
+
+exports.Prisma.TicketCommentOrderByRelevanceFieldEnum = {
+  comment: 'comment'
+};
+exports.RoleName = exports.$Enums.RoleName = {
+  MANAGER: 'MANAGER',
+  SUPPORT: 'SUPPORT',
+  USER: 'USER'
+};
+
+exports.TicketStatus = exports.$Enums.TicketStatus = {
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED'
+};
+
+exports.TicketPriority = exports.$Enums.TicketPriority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH'
+};
 
 exports.Prisma.ModelName = {
-  user: 'user'
+  Role: 'Role',
+  User: 'User',
+  Ticket: 'Ticket',
+  TicketComment: 'TicketComment',
+  TicketStatusLog: 'TicketStatusLog'
 };
 
 /**

@@ -93,11 +93,46 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name'
+};
+
 exports.Prisma.UserScalarFieldEnum = {
   id: 'id',
   name: 'name',
   email: 'email',
-  password: 'password'
+  password: 'password',
+  roleId: 'roleId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  status: 'status',
+  priority: 'priority',
+  createdById: 'createdById',
+  assignedToId: 'assignedToId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketCommentScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  userId: 'userId',
+  comment: 'comment',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TicketStatusLogScalarFieldEnum = {
+  id: 'id',
+  ticketId: 'ticketId',
+  oldStatus: 'oldStatus',
+  newStatus: 'newStatus',
+  changedById: 'changedById',
+  changedAt: 'changedAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -105,15 +140,50 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
-exports.Prisma.userOrderByRelevanceFieldEnum = {
+exports.Prisma.UserOrderByRelevanceFieldEnum = {
   name: 'name',
   email: 'email',
   password: 'password'
 };
 
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
+exports.Prisma.TicketOrderByRelevanceFieldEnum = {
+  title: 'title',
+  description: 'description'
+};
+
+exports.Prisma.TicketCommentOrderByRelevanceFieldEnum = {
+  comment: 'comment'
+};
+exports.RoleName = exports.$Enums.RoleName = {
+  MANAGER: 'MANAGER',
+  SUPPORT: 'SUPPORT',
+  USER: 'USER'
+};
+
+exports.TicketStatus = exports.$Enums.TicketStatus = {
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED'
+};
+
+exports.TicketPriority = exports.$Enums.TicketPriority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH'
+};
 
 exports.Prisma.ModelName = {
-  user: 'user'
+  Role: 'Role',
+  User: 'User',
+  Ticket: 'Ticket',
+  TicketComment: 'TicketComment',
+  TicketStatusLog: 'TicketStatusLog'
 };
 /**
  * Create the Client
@@ -126,7 +196,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "D:\\prectice backend\\my-app\\src\\generated",
+      "value": "D:\\backend first exa\\src\\generated",
       "fromEnvVar": null
     },
     "config": {
@@ -140,7 +210,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "D:\\prectice backend\\my-app\\prisma\\schema.prisma",
+    "sourceFilePath": "D:\\backend first exa\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
@@ -162,13 +232,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel user {\n  id       Int    @id @default(autoincrement())\n  name     String @db.VarChar(255)\n  email    String @unique(map: \"email\") @db.VarChar(255)\n  password String @db.VarChar(255)\n}\n",
-  "inlineSchemaHash": "740e971682da1dee0f647837a4e83ba9ae6c536b7210fdb9a170db4929b49e6e",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nenum RoleName {\n  MANAGER\n  SUPPORT\n  USER\n}\n\nenum TicketStatus {\n  OPEN\n  IN_PROGRESS\n  RESOLVED\n  CLOSED\n}\n\nenum TicketPriority {\n  LOW\n  MEDIUM\n  HIGH\n}\n\nmodel Role {\n  id   Int      @id @default(autoincrement())\n  name RoleName @unique\n\n  users User[]\n}\n\nmodel User {\n  id       Int    @id @default(autoincrement())\n  name     String @db.VarChar(255)\n  email    String @unique @db.VarChar(255)\n  password String @db.VarChar(255) // bcrypt hash\n  roleId   Int\n  role     Role   @relation(fields: [roleId], references: [id])\n\n  createdAt DateTime @default(now())\n\n  createdTickets  Ticket[]          @relation(\"CreatedTickets\")\n  assignedTickets Ticket[]          @relation(\"AssignedTickets\")\n  comments        TicketComment[]\n  statusChanges   TicketStatusLog[]\n}\n\nmodel Ticket {\n  id          Int            @id @default(autoincrement())\n  title       String         @db.VarChar(255)\n  description String         @db.Text\n  status      TicketStatus   @default(OPEN)\n  priority    TicketPriority @default(MEDIUM)\n\n  createdById  Int\n  assignedToId Int?\n\n  createdBy  User  @relation(\"CreatedTickets\", fields: [createdById], references: [id])\n  assignedTo User? @relation(\"AssignedTickets\", fields: [assignedToId], references: [id])\n\n  createdAt DateTime @default(now())\n\n  comments   TicketComment[]\n  statusLogs TicketStatusLog[]\n}\n\nmodel TicketComment {\n  id        Int      @id @default(autoincrement())\n  ticketId  Int\n  userId    Int\n  comment   String   @db.Text\n  createdAt DateTime @default(now())\n\n  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)\n  user   User   @relation(fields: [userId], references: [id])\n}\n\nmodel TicketStatusLog {\n  id          Int          @id @default(autoincrement())\n  ticketId    Int\n  oldStatus   TicketStatus\n  newStatus   TicketStatus\n  changedById Int\n  changedAt   DateTime     @default(now())\n\n  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)\n  changedBy User   @relation(fields: [changedById], references: [id])\n}\n",
+  "inlineSchemaHash": "f9cc29d692afb03b1bd05e5d40efc6d9cfa3bf25963eab483e933703bf3021c3",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"user\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"Role\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"name\",\"kind\":\"enum\",\"type\":\"RoleName\"},{\"name\":\"users\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"RoleToUser\"}],\"dbName\":null},\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roleId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"role\",\"kind\":\"object\",\"type\":\"Role\",\"relationName\":\"RoleToUser\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"createdTickets\",\"kind\":\"object\",\"type\":\"Ticket\",\"relationName\":\"CreatedTickets\"},{\"name\":\"assignedTickets\",\"kind\":\"object\",\"type\":\"Ticket\",\"relationName\":\"AssignedTickets\"},{\"name\":\"comments\",\"kind\":\"object\",\"type\":\"TicketComment\",\"relationName\":\"TicketCommentToUser\"},{\"name\":\"statusChanges\",\"kind\":\"object\",\"type\":\"TicketStatusLog\",\"relationName\":\"TicketStatusLogToUser\"}],\"dbName\":null},\"Ticket\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"TicketStatus\"},{\"name\":\"priority\",\"kind\":\"enum\",\"type\":\"TicketPriority\"},{\"name\":\"createdById\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"assignedToId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"createdBy\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CreatedTickets\"},{\"name\":\"assignedTo\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"AssignedTickets\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"comments\",\"kind\":\"object\",\"type\":\"TicketComment\",\"relationName\":\"TicketToTicketComment\"},{\"name\":\"statusLogs\",\"kind\":\"object\",\"type\":\"TicketStatusLog\",\"relationName\":\"TicketToTicketStatusLog\"}],\"dbName\":null},\"TicketComment\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"ticketId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"comment\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"ticket\",\"kind\":\"object\",\"type\":\"Ticket\",\"relationName\":\"TicketToTicketComment\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"TicketCommentToUser\"}],\"dbName\":null},\"TicketStatusLog\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"ticketId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"oldStatus\",\"kind\":\"enum\",\"type\":\"TicketStatus\"},{\"name\":\"newStatus\",\"kind\":\"enum\",\"type\":\"TicketStatus\"},{\"name\":\"changedById\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"changedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"ticket\",\"kind\":\"object\",\"type\":\"Ticket\",\"relationName\":\"TicketToTicketStatusLog\"},{\"name\":\"changedBy\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"TicketStatusLogToUser\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),

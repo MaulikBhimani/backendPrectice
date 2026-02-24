@@ -8,3 +8,21 @@ First, run the development server:
 ```bash
 npm run dev
 ```
+
+app/
+ └─ api/
+     ├─ auth/
+     │   ├─ signup/route.js
+     │   └─ login/route.js
+     ├─ users/
+     │   ├─ route.js        (GET all users, POST create)
+     │   └─ [id]/route.js   (GET, PATCH, DELETE user by id)
+     ├─ students/
+     │   ├─ route.js
+     │   └─ [id]/route.js
+     └─ faculty/
+         ├─ route.js
+         └─ [id]/route.js
+lib/
+ ├─ prisma.js
+ └─ jwt.js

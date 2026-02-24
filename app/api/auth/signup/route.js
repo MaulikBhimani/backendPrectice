@@ -1,44 +1,58 @@
 // app/api/auth/signup/route.js
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { name, email, password } = await req.json();
-    console.log('Signup attempt:', { name, email });
+    const { name, email, password, role = "USER" } = await req.json();
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      console.log('Email already exists');
       return NextResponse.json(
-        { success: false, message: "Email already registered" },
+        { message: "Email already registered" },
         { status: 400 }
       );
     }
+
+    const roleRecord = await prisma.role.findUnique({
+      where: { name: role },
+    });
+
+    if (!roleRecord) {
+      return NextResponse.json(
+        { message: "Invalid role" },
+        { status: 400 }
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     
     const user = await prisma.user.create({
-      data: { name, email, password },
+      data: { 
+        name, 
+        email, 
+        password: hashedPassword,
+        roleId: roleRecord.id
+      },
+      include: { role: true }
     });
-    console.log('User created:', user.id);
 
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, role: user.role.name },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1d" }
     );
-    console.log('Token generated:', !!token);
 
-    return NextResponse.json({ success: true, user, token });
+    return NextResponse.json({ token });
   } catch (error) {
     console.error('Signup error:', error);
-
     return NextResponse.json(
-      { success: false, message: "Signup failed" },
+      { message: "Signup failed" },
       { status: 500 }
     );
   }

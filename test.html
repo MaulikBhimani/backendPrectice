@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #0070f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0051cc; }
+        .success { background: #10b981; }
+        .error { background: #ef4444; }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .result.show { display: block; }
+        .result.success { background: #d1fae5; border: 1px solid #10b981; }
+        .result.error { background: #fee2e2; border: 1px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 API Testing - Login Endpoint</h1>
+        
+        <!-- Custom Login Test -->
+        <div class="test-section">
+            <h2>Test 1: Custom Login</h2>
+            <input type="email" id="email" placeholder="Email" value="manager@example.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="testCustomLogin()">Test Login</button>
+            <div id="result1" class="result"></div>
+        </div>
+
+        <!-- Valid Login -->
+        <div class="test-section">
+            <h2>Test 2: Valid Login ✅</h2>
+            <pre>Email: manager@example.com
+Password: password123</pre>
+            <button onclick="testValidLogin()">Test Valid Login</button>
+            <div id="result2" class="result"></div>
+        </div>
+
+        <!-- Wrong Password -->
+        <div class="test-section">
+            <h2>Test 3: Wrong Password ❌</h2>
+            <pre>Email: manager@example.com
+Password: wrongpassword</pre>
+            <button onclick="testWrongPassword()">Test Wrong Password</button>
+            <div id="result3" class="result"></div>
+        </div>
+
+        <!-- Wrong Email -->
+        <div class="test-section">
+            <h2>Test 4: Wrong Email ❌</h2>
+            <pre>Email: notexist@example.com
+Password: password123</pre>
+            <button onclick="testWrongEmail()">Test Wrong Email</button>
+            <div id="result4" class="result"></div>
+        </div>
+
+        <!-- Missing Password -->
+        <div class="test-section">
+            <h2>Test 5: Missing Password ❌</h2>
+            <pre>Email: manager@example.com
+Password: (empty)</pre>
+            <button onclick="testMissingPassword()">Test Missing Password</button>
+            <div id="result5" class="result"></div>
+        </div>
+
+        <!-- Empty Body -->
+        <div class="test-section">
+            <h2>Test 6: Empty Body ❌</h2>
+            <pre>{}</pre>
+            <button onclick="testEmptyBody()">Test Empty Body</button>
+            <div id="result6" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/auth/login';
+
+        async function testLogin(data, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.innerHTML = '⏳ Testing...';
+            resultDiv.className = 'result show';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Success (${response.status})</strong>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p><strong>Token:</strong> ${result.token ? result.token.substring(0, 50) + '...' : 'N/A'}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `
+                        <strong>❌ Error (${response.status})</strong>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result show error';
+                resultDiv.innerHTML = `
+                    <strong>❌ Network Error</strong>
+                    <pre>${error.message}</pre>
+                    <p>Make sure your server is running on http://localhost:3000</p>
+                `;
+            }
+        }
+
+        function testCustomLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            testLogin({ email, password }, 'result1');
+        }
+
+        function testValidLogin() {
+            testLogin({ 
+                email: 'manager@example.com', 
+                password: 'password123' 
+            }, 'result2');
+        }
+
+        function testWrongPassword() {
+            testLogin({ 
+                email: 'manager@example.com', 
+                password: 'wrongpassword' 
+            }, 'result3');
+        }
+
+        function testWrongEmail() {
+            testLogin({ 
+                email: 'notexist@example.com', 
+                password: 'password123' 
+            }, 'result4');
+        }
+
+        function testMissingPassword() {
+            testLogin({ 
+                email: 'manager@example.com'
+            }, 'result5');
+        }
+
+        function testEmptyBody() {
+            testLogin({}, 'result6');
+        }
+    </script>
+</body>
+</html>

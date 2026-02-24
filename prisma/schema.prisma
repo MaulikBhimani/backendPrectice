@@ -8,9 +8,86 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model user {
-  id       Int    @id @default(autoincrement())
-  name     String @db.VarChar(255)
-  email    String @unique(map: "email") @db.VarChar(255)
-  password String @db.VarChar(255)
+enum RoleName {
+  MANAGER
+  SUPPORT
+  USER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+
+  users User[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255) // bcrypt hash
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  createdTickets  Ticket[] @relation("CreatedTickets")
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  comments        TicketComment[]
+  statusChanges   TicketStatusLog[]
+}
+
+model Ticket {
+  id          Int            @id @default(autoincrement())
+  title       String         @db.VarChar(255)
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+
+  createdById Int
+  assignedToId Int?
+
+  createdBy   User  @relation("CreatedTickets", fields: [createdById], references: [id])
+  assignedTo  User? @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  comments    TicketComment[]
+  statusLogs  TicketStatusLog[]
+}
+
+model TicketComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  userId    Int
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model TicketStatusLog {
+  id        Int          @id @default(autoincrement())
+  ticketId  Int
+  oldStatus TicketStatus
+  newStatus TicketStatus
+  changedById Int
+  changedAt DateTime     @default(now())
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
 }
